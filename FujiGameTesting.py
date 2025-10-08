@@ -11,7 +11,7 @@ def Screenshots(page, Gamenamet):
     folder = "Screenshots"
     os.makedirs(folder, exist_ok=True)
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    filename = f"{Gamenamet}_{timestamp}.png.".replace(" ", "_")
+    filename = f"{Gamenamet}_{timestamp}.png".replace(" ", "_")
     path = os.path.join(folder, filename)
     page.screenshot(path=path, full_page=True)
 
@@ -22,7 +22,7 @@ def close_popup(page):
         Cancelpopup.click()
         print("Ads popup closed successfully")
     except:
-        print("Ass")
+        print("Adds popup not found.")
     
 def Login(page, username, password):
     page.locator("//div[@class='flex relative items-center']/div/div/button[text()='Login']").click()
@@ -46,7 +46,7 @@ def Provider(page):
     ProviderNames = page.locator(Providers_Name_xpath)
     Total_Providers = Providers.count()
     print(f"Total Providers: {Total_Providers}")
-    for prov in range(1, Total_Providers):
+    for prov in range(2, Total_Providers):
         provider = Providers.nth(prov)
         providername = ProviderNames.nth(prov).inner_text()
         provider.scroll_into_view_if_needed()
@@ -68,65 +68,91 @@ def GameTesting(page, providername, p):
         try:
             Gamenamet = Gamename.nth(g).inner_text()
             gameplay = Game.nth(g)
-            time.sleep(1)
+            time.sleep(2)
             gameplay.scroll_into_view_if_needed()
-            time.sleep(1)
+            time.sleep(2)
             gameplay.hover()
-            time.sleep(1)
+            time.sleep(2)
             gameplay.evaluate("el => el.click()")
-            time.sleep(1)
             # Game opened in same page
             toast_selector = page.locator("//div[@class='toast-message text-sm' and contains(text(),'Something went wrong')]")
-            try:
-                toast_selector.wait_for(state="visible", timeout = 7000)
+            toast_visible = False
+            for _ in range(10):
+                try:
+                    if toast_selector.is_visible():
+                        toast_visible = True
+                        break
+                except:
+                    pass
+                time.sleep(2)
+                
+            if toast_visible:
                 print(f"Failed: {Gamenamet}")
                 try:
                     page.locator("//button[text()='Back To Home']").click()
                 except:
                     page.go_back()
-            except:
+            else:
                 # Screenshots(page, Gamenamet)
-                print(f"Success: {Gamenamet}")
-                frames = page.frames
+
                 error_found = False
 
-                for frame in frames:
+                for frame in page.frames:
                     try:
                         # Explicitly check if the element is visible
                         if frame.locator("text=Sorry, the game is not available for your jurisdiction.").is_visible():
                             Screenshots(page, Gamenamet)
-                            print(f"❌ Jurisdiction Blocked: {Gamenamet}")
+                            print(f"Success: {Gamenamet} with Jurisdiction Blocked Messg.")
                             error_found = True
                             break
                     except:
                         continue
 
                 if not error_found:
-                    # print(f"✅ Game Loaded Properly: {Gamenamet}")
-                    print("")
+                    print(f"Success: {Gamenamet}")
+                    # Cancel_btn = page.locator("//button/*[@class='w-5 h-5 game_header_close_btn']")
                 try:
                     page.locator("//button/*[@class='w-5 h-5 game_header_close_btn']").click()
                 except:
                     page.go_back()
+                        
         except Exception as e:
-            Screenshots (page, Gamenamet)
-            print(f"failed {Gamenamet} {providername} as {e}")
+            
+            try:
+                Gamenamet = Gamename.nth(g).inner_text()
+                gameplay = Game.nth(g)
+                page.wait_for_timeout(2000)
+                Gamenamet.scroll_into_view_if_needed()
+                page.wait_for_timeout(2000)
+                Gamenamet.hover()
+                page.wait_for_timeout(2000)
+                gameplay.evaluate("el => el.click()")
+                page.wait_for_timeout(2000)
+            except:
+                Screenshots (page, Gamenamet)
+                print(f"failed {Gamenamet} {providername} as {e}")
+                continue
+            
             
         if p != 1:
-            btn1 = page.locator("//div[@class='p-holder admin-pagination']/button[normalize-space(text())='1']")
-            time.sleep(1)
-            btn1.scroll_into_view_if_needed()
-            time.sleep(1)
-            btn = page.locator(f"//div[@class='p-holder admin-pagination']/button[normalize-space(text())='{p}']")
-            while not btn.is_visible():
-                visible_btns = page.locator("//div[@class='p-holder admin-pagination']/button[not(contains(@class,'p-prev')) and not(contains(@class,'p-next'))]")
-                visible = visible_btns.nth(visible_btns.count()-2)
-                visible.click()
+            try:
+                btn1 = page.locator("//div[@class='p-holder admin-pagination']/button[normalize-space(text())='1']")
+                time.sleep(2)
+                btn1.scroll_into_view_if_needed()
+                time.sleep(2)
+                btn = page.locator(f"//div[@class='p-holder admin-pagination']/button[normalize-space(text())='{p}']")
+                while not btn.is_visible():
+                    visible_btns = page.locator("//div[@class='p-holder admin-pagination']/button[not(contains(@class,'p-prev')) and not(contains(@class,'p-next'))]")
+                    visible = visible_btns.nth(visible_btns.count()-2)
+                    visible.click()
+                    time.sleep(1)
+                btn = page.locator(f"//div[@class='p-holder admin-pagination']/button[normalize-space(text())='{p}']")
+                btn.click()
                 time.sleep(1)
-            btn = page.locator(f"//div[@class='p-holder admin-pagination']/button[normalize-space(text())='{p}']")
-            btn.click()
-            time.sleep(1)
-            
+            except Exception as e:
+                Screenshots (page, Gamenamet)
+                print(f"failed {Gamenamet} {providername} after game rather than 1st page {e}")
+
             
 def Pagination(page, providername):
     pagination_buttons = "//div[@class='p-holder admin-pagination']/button[not(contains(@class,'p-prev')) and not(contains(@class,'p-next'))]"
@@ -154,9 +180,10 @@ def Pagination(page, providername):
     
 with sync_playwright() as p:
     browser = p.chromium.launch(headless = False, args = ["--Start-maximized"])
-    context = browser.new_context(no_viewport = True)
+    context = browser.new_context(no_viewport = True, record_video_dir="Videos/")
     page = context.new_page()
     title = Launch_browser(page, "https://www.fuji9bd.com/en-ph/")
+    page.screenshot(path="videos/screenshot.png")
     print(title)
     close_popup(page)
     Login(page, "testphp", "qweqwe11")
